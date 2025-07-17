@@ -1,20 +1,15 @@
 import * as esbuild from 'esbuild';
+import http from 'http';
 import { readdirSync } from 'fs';
 import { join, sep } from 'path';
 
-// Config output
 const BUILD_DIRECTORY = 'dist';
-const PRODUCTION = process.env.NODE_ENV === 'production';
-
-// Config entrypoint files
-const ENTRY_POINTS = ['src/index.js', 'src/styles/styles.css'];
-
-// Config dev serving
-const LIVE_RELOAD = !PRODUCTION;
 const SERVE_PORT = 3000;
+const PRODUCTION = process.env.NODE_ENV === 'production';
+const ENTRY_POINTS = ['src/index.js', 'src/styles/styles.css'];
 const SERVE_ORIGIN = `http://localhost:${SERVE_PORT}`;
+const LIVE_RELOAD = !PRODUCTION;
 
-// Create context
 const context = await esbuild.context({
   bundle: true,
   entryPoints: ENTRY_POINTS,
@@ -28,32 +23,46 @@ const context = await esbuild.context({
   },
 });
 
-// Build files in prod
 if (PRODUCTION) {
   await context.rebuild();
   context.dispose();
+} else {
+  const { host, port } = await context.serve({
+    servedir: BUILD_DIRECTORY,
+    port: 0, // Use any free port (will proxy below)
+  });
+
+  const proxyServer = http.createServer((req, res) => {
+    const proxyReq = http.request(
+      {
+        hostname: host,
+        port: port,
+        path: req.url,
+        method: req.method,
+        headers: req.headers,
+      },
+      (proxyRes) => {
+        // 🛡 Add CORS headers here
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', '*');
+
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res, { end: true });
+      }
+    );
+
+    req.pipe(proxyReq, { end: true });
+  });
+
+  proxyServer.listen(SERVE_PORT, () => {
+    console.log(`🚀 Dev server running at: ${SERVE_ORIGIN}`);
+    logServedFiles();
+  });
 }
 
-// Watch and serve files in dev
-else {
-  await context.watch();
-  await context
-    .serve({
-      servedir: BUILD_DIRECTORY,
-      port: SERVE_PORT,
-    })
-    .then(logServedFiles);
-}
-
-/**
- * Logs information about the files that are being served during local development.
- */
+/** Your logServedFiles function stays the same */
 function logServedFiles() {
-  /**
-   * Recursively gets all files in a directory.
-   * @param {string} dirPath
-   * @returns {string[]} An array of file paths.
-   */
   const getFiles = (dirPath) => {
     const files = readdirSync(dirPath, { withFileTypes: true }).map((dirent) => {
       const path = join(dirPath, dirent.name);
@@ -69,13 +78,11 @@ function logServedFiles() {
     .map((file) => {
       if (file.endsWith('.map')) return;
 
-      // Normalize path and create file location
       const paths = file.split(sep);
       paths[0] = SERVE_ORIGIN;
 
       const location = paths.join('/');
 
-      // Create import suggestion
       const tag = location.endsWith('.css')
         ? `<link href="${location}" rel="stylesheet" type="text/css"/>`
         : `<script defer src="${location}"></script>`;
@@ -87,6 +94,5 @@ function logServedFiles() {
     })
     .filter(Boolean);
 
-  // eslint-disable-next-line no-console
   console.table(filesInfo);
 }
