@@ -1,5 +1,5 @@
 {
-  "name": "webflow-gsap-starter-kit",
+  "name": "webflow-gsap-kit",
   "version": "1.0.0",
   "description": "A Webflow + GSAP integration starter kit based on Finsweet’s developer starter kit.",
   "basedOn": "https://github.com/finsweet/developer-starter-kit",
