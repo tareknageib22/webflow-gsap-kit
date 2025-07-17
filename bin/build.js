@@ -33,19 +33,24 @@ if (PRODUCTION) {
   });
 
   const proxyServer = http.createServer((req, res) => {
-    // ✅ Add CORS headers for all requests
+    // ✅ Add CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', '*');
 
-    // ✅ Handle preflight OPTIONS request
+    // ✅ Handle preflight OPTIONS requests properly
     if (req.method === 'OPTIONS') {
-      res.writeHead(204); // No Content
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+        'Access-Control-Max-Age': '86400', // 24 hours cache
+      });
       res.end();
       return;
     }
 
-    // ✅ Forward all other requests
+    // ✅ Forward all other requests to esbuild dev server
     const proxyReq = http.request(
       {
         hostname: host,
