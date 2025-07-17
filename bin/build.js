@@ -33,6 +33,19 @@ if (PRODUCTION) {
   });
 
   const proxyServer = http.createServer((req, res) => {
+    // ✅ Add CORS headers for all requests
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    // ✅ Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204); // No Content
+      res.end();
+      return;
+    }
+
+    // ✅ Forward all other requests
     const proxyReq = http.request(
       {
         hostname: host,
@@ -42,11 +55,6 @@ if (PRODUCTION) {
         headers: req.headers,
       },
       (proxyRes) => {
-        // 🛡 Add CORS headers here
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', '*');
-
         res.writeHead(proxyRes.statusCode, proxyRes.headers);
         proxyRes.pipe(res, { end: true });
       }
@@ -61,7 +69,6 @@ if (PRODUCTION) {
   });
 }
 
-/** Your logServedFiles function stays the same */
 function logServedFiles() {
   const getFiles = (dirPath) => {
     const files = readdirSync(dirPath, { withFileTypes: true }).map((dirent) => {
