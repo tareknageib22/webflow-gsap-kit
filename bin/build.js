@@ -31,42 +31,43 @@ if (PRODUCTION) {
     servedir: BUILD_DIRECTORY,
     port: 0, // Use any free port (will proxy below)
   });
+const proxyServer = http.createServer((req, res) => {
+  // ✅ Use your actual domain instead of '*'
+  res.setHeader('Access-Control-Allow-Origin', 'https://healthy-gamer-coaching-landing-clone.webflow.io'); // <- CHANGE THIS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  const proxyServer = http.createServer((req, res) => {
-    // ✅ Add CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
+  // ✅ Handle preflight OPTIONS requests properly
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': 'https://healthy-gamer-coaching-landing-clone.webflow.io', // <- CHANGE THIS TOO
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    });
+    res.end();
+    return;
+  }
 
-    // ✅ Handle preflight OPTIONS requests properly
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': '*',
-        'Access-Control-Max-Age': '86400', // 24 hours cache
-      });
-      res.end();
-      return;
+  // ✅ Forward all other requests
+  const proxyReq = http.request(
+    {
+      hostname: host,
+      port: port,
+      path: req.url,
+      method: req.method,
+      headers: req.headers,
+    },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
     }
+  );
 
-    // ✅ Forward all other requests to esbuild dev server
-    const proxyReq = http.request(
-      {
-        hostname: host,
-        port: port,
-        path: req.url,
-        method: req.method,
-        headers: req.headers,
-      },
-      (proxyRes) => {
-        res.writeHead(proxyRes.statusCode, proxyRes.headers);
-        proxyRes.pipe(res, { end: true });
-      }
-    );
-
-    req.pipe(proxyReq, { end: true });
-  });
+  req.pipe(proxyReq, { end: true });
+});
 
   proxyServer.listen(SERVE_PORT, () => {
     console.log(`🚀 Dev server running at: ${SERVE_ORIGIN}`);
